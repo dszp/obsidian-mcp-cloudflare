@@ -1,6 +1,6 @@
 import { type ToolResult, err, ok } from "../types";
 import { buildVaultConfig } from "../config";
-import { dirOf, resolveAttachmentPath } from "../vault/attachments";
+import { buildEmbedMarkdown, dirOf, resolveAttachmentPath } from "../vault/attachments";
 
 // Short-lived, single-use upload tokens for Claude-minted upload links.
 //
@@ -190,6 +190,15 @@ export interface UploadLink {
   expires_at: string;
   /** Set for a deterministic single-file link — the exact path the file lands at. */
   dest_path?: string;
+  /**
+   * Set for a deterministic single-file link — the ready-to-paste wikilink embed
+   * for `dest_path`, identical to what the upload POST returns. Provided so a
+   * caller can embed the correct path immediately, without reconstructing it from
+   * the folder it *asked* for (which is the mismatch that breaks embeds when the
+   * resolved `dest_path` differs from the caller's intended folder). Absent in
+   * batch mode, where there is no single filename yet.
+   */
+  embed_markdown?: string;
   /** The vault folder uploads land in (so a batch upload can be found with
    * list_attachments scoped to this prefix instead of scanning the whole vault).
    * "" means the vault root. */
@@ -258,10 +267,18 @@ export async function createUploadLink(
   const { token, expiresAt } = await signUploadToken(env, scope, ttlSeconds);
   const multiple = !scope.dest_path;
   const url = `${base}/upload?t=${encodeURIComponent(token)}${multiple ? "&multi=1" : ""}`;
+  // Mirror the upload POST's embed exactly: the deterministic upload stores via
+  // finalizeUpload with no target_note, so its embed is the full vault-relative
+  // path. Build the same form here so the two responses never disagree.
+  const embed_markdown = scope.dest_path
+    ? buildEmbedMarkdown(scope.dest_path, null, "wikilink")
+    : undefined;
+
   return ok({
     upload_url: url,
     expires_at: expiresAt,
     dest_path: scope.dest_path,
+    embed_markdown,
     landing_dir,
     target_note: args.target_note,
     subfolder: args.subfolder,

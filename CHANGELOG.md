@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`create_upload_link` now returns `embed_markdown` in deterministic mode.** When a `filename` is passed, the response includes a ready-to-paste wikilink embed for the resolved `dest_path`, identical to what the upload POST returns (full vault-relative path). This closes a footgun where a caller would reconstruct the embed from the folder it *asked for* rather than the folder the file *resolves to* — under `per_note_subfolder`, a file attached to a root-level note lands in `files/` at the vault root, not the caller's intended subfolder, so a guessed `![[Conferences/files/x.png]]` embed breaks while the true `![[files/x.png]]` works. The tool description now also explicitly instructs callers to embed using the returned `embed_markdown`/`dest_path`, never a reconstructed path. Batch links (no `filename`) omit the field, as before.
+
 ## [0.15.1] - 2026-06-01
 
 ### Fixed
