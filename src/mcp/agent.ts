@@ -486,12 +486,19 @@ export class ObsidianMCP extends McpAgent<Env, never, Props> {
 
     this.server.tool(
       "upload_attachment_url",
-      "Fetch an asset from an HTTPS URL server-side and store it as a vault attachment. Prefer a direct asset URL (ending in .png/.jpg/.pdf/…) over a web page — HTML responses are rejected. Security: HTTPS only; the host must be in the server's ATTACHMENT_FETCH_HOST_ALLOWLIST (default-closed — if the allowlist is empty NO host is fetchable and every call fails with 'host_not_allowed'; the operator may set it to '*' to allow any host); no IP-literal or localhost hosts (this denylist applies even when the allowlist is '*'); all of this is re-validated across redirects; plus a size cap (ATTACHMENT_MAX_BYTES) and fetch timeout. If `filename` is omitted it is taken from the URL, else synthesized from the response Content-Type. On success returns JSON `{path, embed_markdown, permalink, etag, size, content_type}`. ANY failure is terminal and writes nothing to the vault — never assume the file was stored (or that a source attachment may now be deleted/completed) unless you received the success JSON. Fails with reason='invalid_url', 'insecure_url' (not https), 'host_not_allowed' (host not in the allowlist), 'disallowed_host' (IP-literal/loopback), 'too_many_redirects', 'fetch_failed', 'html_response', 'too_large', 'no_extension_inferable', 'disallowed_extension' (file type not in ATTACHMENT_ALLOWED_EXTENSIONS — the error carries the allowed list), or 'exists'.",
+      "Fetch an asset from an HTTPS URL server-side and store it as a vault attachment. Prefer a direct asset URL (ending in .png/.jpg/.pdf/…) over a web page — HTML responses are rejected. Security: HTTPS only; the host must be in the server's ATTACHMENT_FETCH_HOST_ALLOWLIST (default-closed — if the allowlist is empty NO host is fetchable and every call fails with 'host_not_allowed'; the operator may set it to '*' to allow any host); no IP-literal or localhost hosts (this denylist applies even when the allowlist is '*'); all of this is re-validated across redirects; plus a size cap (ATTACHMENT_MAX_BYTES) and fetch timeout. If `filename` is omitted it is taken from the URL, else synthesized from the response Content-Type. On success returns JSON `{path, embed_markdown, permalink, etag, size, content_type}`. The destination is resolved server-side from `target_note`/`subfolder` (under the default per_note_subfolder mode `subfolder` is placed under the target note's OWN folder), so the file may not land in the folder you pictured — always embed and verify using the returned `path`/`embed_markdown`, never a path you reconstruct from the arguments you passed. ANY failure is terminal and writes nothing to the vault — never assume the file was stored (or that a source attachment may now be deleted/completed) unless you received the success JSON. Fails with reason='invalid_url', 'insecure_url' (not https), 'host_not_allowed' (host not in the allowlist), 'disallowed_host' (IP-literal/loopback), 'too_many_redirects', 'fetch_failed', 'html_response', 'too_large', 'no_extension_inferable', 'disallowed_extension' (file type not in ATTACHMENT_ALLOWED_EXTENSIONS — the error carries the allowed list), or 'exists'.",
       {
         source_url: z.string().min(1),
         filename: z.string().optional(),
-        target_note: NotePath.optional(),
-        subfolder: z.string().optional(),
+        target_note: NotePath.optional().describe(
+          "A .md note path. Under the default per_note_subfolder mode the attachment lands under THIS note's own folder, not a folder named after it; the response `path` is authoritative.",
+        ),
+        subfolder: z
+          .string()
+          .optional()
+          .describe(
+            "Destination subfolder, resolved relative to target_note's folder under the default mode (not an absolute vault path). The response `path` is authoritative — embed that, don't reconstruct it from this value.",
+          ),
         overwrite: z.boolean().optional(),
         dest_path: AttachmentPath.optional(),
       },
@@ -507,8 +514,15 @@ export class ObsidianMCP extends McpAgent<Env, never, Props> {
       "create_upload_link",
       "Mint a short-lived, single-use web link the USER taps to upload file(s) directly to the vault — this is THE way to get a local image/photo/PDF into the vault (a real file cannot be sent through a tool call at all; its bytes would blow the model's output budget). The bytes go straight from the user's browser to the server. Present the returned `upload_url` as a tappable link and tell the user to open it and pick/take the file(s). Mode is chosen by `filename` alone: (1) pass `filename` for a DETERMINISTIC single-file link — the file lands at exactly the returned `dest_path`, which you can then poll with head_attachment/read_attachment after the user says they've uploaded; (2) omit `filename` for a BATCH link — the user may pick up to `max_files` files (default 10) that land in `landing_dir`, which you find afterward via list_attachments. Any `max_files` value (even 1) stays batch mode; only `filename` triggers deterministic mode. `target_note` (a .md path) and `subfolder` set the destination folder. You don't need to know the final note at upload time — upload to your best guess (or a holding folder) and use move_attachment later to relocate. To extract text, call read_attachment on the stored file (it returns the image to you). The link expires (default 15 min, max 30) and works once. Returns JSON `{upload_url, expires_at, landing_dir, multiple, ...}` — `landing_dir` is the vault folder the file(s) land in, so after a batch upload you can call list_attachments scoped to that prefix instead of scanning the whole vault. `dest_path` and `embed_markdown` are included only in deterministic mode (when you passed `filename`) — **embed the file using the returned `embed_markdown` (or `dest_path`), never a path you reconstruct from the folder you asked for**, since the resolved destination may differ from your intended folder. `target_note`/`subfolder` are echoed only when you passed them. Fails with reason='upload_disabled' if the endpoint isn't configured.",
       {
-        target_note: NotePath.optional(),
-        subfolder: z.string().optional(),
+        target_note: NotePath.optional().describe(
+          "A .md note path. Under the default per_note_subfolder mode the file lands under THIS note's own folder, not a folder named after it; the returned `dest_path`/`embed_markdown` is authoritative.",
+        ),
+        subfolder: z
+          .string()
+          .optional()
+          .describe(
+            "Destination subfolder, resolved relative to target_note's folder under the default mode (not an absolute vault path). The returned `dest_path`/`embed_markdown` is authoritative — embed that, don't reconstruct it from this value.",
+          ),
         filename: z.string().optional(),
         max_files: z.number().int().positive().max(50).optional(),
         ttl_minutes: z.number().int().positive().max(30).optional(),
