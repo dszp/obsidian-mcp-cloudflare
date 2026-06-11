@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-06-09
+
+### Added
+
+- **`create_upload_link` now returns `embed_markdown` in deterministic mode.** When a `filename` is passed, the response includes a ready-to-paste wikilink embed for the resolved `dest_path`, identical to what the upload POST returns (full vault-relative path). This closes a footgun where a caller would reconstruct the embed from the folder it *asked for* rather than the folder the file *resolves to* — under `per_note_subfolder`, a file attached to a root-level note lands in `files/` at the vault root, not the caller's intended subfolder, so a guessed `![[Conferences/files/x.png]]` embed breaks while the true `![[files/x.png]]` works. The tool description now also explicitly instructs callers to embed using the returned `embed_markdown`/`dest_path`, never a reconstructed path. Batch links (no `filename`) omit the field, as before.
+
+### Changed
+
+- **Attachment-upload tool descriptions now spell out the path-resolution semantics** so an AI caller can't repeat the broken-embed mistake. `upload_attachment_url`'s description gained the same "the destination is resolved server-side from `target_note`/`subfolder` (under the default `per_note_subfolder` mode `subfolder` sits under the note's *own* folder), so always embed/verify using the returned `path`/`embed_markdown`, never a reconstructed path" guidance that `create_upload_link` already carries. The `target_note` and `subfolder` parameters on both tools also gained inline `.describe()` hints stating that `subfolder` is resolved relative to the note's folder (not an absolute vault path) and that the returned path is authoritative. Description/metadata only — no tool-shape or behavior change.
+
 ## [0.15.1] - 2026-06-01
 
 ### Fixed
@@ -315,7 +325,8 @@ Initial release.
 - End-to-end deployment verified: Obsidian (Mac) ↔ Remotely Save ↔ R2 ↔ Worker ↔ Claude.ai. Note creation through Claude.ai was confirmed and the new note synced back to Obsidian on the next Remotely Save interval.
 - Documented gotchas encountered during build: `vitest-pool-workers` + space-in-path, `custom_domain` clashes with pre-existing DNS records, 30-minute negative DNS cache after record deletion.
 
-[Unreleased]: https://github.com/dszp/obsidian-mcp-cloudflare/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/dszp/obsidian-mcp-cloudflare/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/dszp/obsidian-mcp-cloudflare/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/dszp/obsidian-mcp-cloudflare/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/dszp/obsidian-mcp-cloudflare/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/dszp/obsidian-mcp-cloudflare/compare/v0.13.0...v0.14.0

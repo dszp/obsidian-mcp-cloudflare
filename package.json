@@ -1,6 +1,6 @@
 {
   "name": "obsidian-mcp-cloudflare",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "author": "David Szpunar (https://david.szpunar.com)",
